@@ -11,23 +11,23 @@
 #define LED_PIN A1 //PIN for LED
 
 #define ARRAYSIZE(x)  (sizeof(x) / sizeof(x[0]))
-#define MAX_SENSORS 2
+#define MAX_ACTUATORS 2
+#define MAX_SENSORS 4
 
 struct Sensor {
+  int pin;
   String type;
-  String pin;
-  String value;
+  int value;
 };
 
 struct Actuator {
-  String pin;
+  int pin;
   String status;
   long time;
 };
 
 struct Status {
-  Actuator ligth;
-  Actuator water;
+  Actuator actuators[MAX_ACTUATORS]
   Sensor sensors[MAX_SENSORS];
 };
 
@@ -44,10 +44,12 @@ void setup(){
     ; // wait for serial port to connect. Needed for native USB port only
   }
   
-  globalStatus.ligth = {"A0", "OFF", 0};
-  globalStatus.water = {"A1", "OFF", 0};
-  globalStatus.sensors[0] = Sensor{"A2", "DHT11", "23.00"};
-  globalStatus.sensors[1] = Sensor{"A3", "SOIL", "30"};
+  globalStatus.ligth = {0, "OFF", 0};
+  globalStatus.water = {1, "OFF", 0};
+  globalStatus.sensors[0] = Sensor{2, "DHT11_TEMP", 23};
+  globalStatus.sensors[1] = Sensor{3, "DHT11_HUM", 50};
+  globalStatus.sensors[2] = Sensor{4, "SOIL", 30};
+  globalStatus.sensors[3] = Sensor{5, "LDR", 500};
   
 }
 
@@ -55,6 +57,8 @@ void loop() {
   lastTime = millis();
   
   checkStatus();
+  
+  getData();
   
   while (Serial.available()) {
     
@@ -68,7 +72,7 @@ void loop() {
     } else {
       
       Serial.print("JSON_RECEIVED:");
-      root.prettyPrintTo(Serial);
+      root.printTo(Serial);
       Serial.println();
       
       String action = root["action"];
@@ -122,7 +126,23 @@ void checkStatus() {
   
 }
 
-void  sendData() {
+void getData() {
+  for (int i = 0; i < ARRAYSIZE(globalStatus.sensors); i++) {
+    
+    if(globalStatus.sensors[i].type == "DHT11_TEMP"){
+      globalStatus.sensors[i].value = getTemperatureDHT11(globalStatus.sensors[i].pin, globalStatus.sensors[i].value);
+    } else if(globalStatus.sensors[i].type == "DHT11_HUM"){
+      globalStatus.sensors[i].value = getHumidityDHT11(globalStatus.sensors[i].pin, globalStatus.sensors[i].value);
+    } else if(globalStatus.sensors[i].type == "SOIL"){
+      globalStatus.sensors[i].value = getSoil(globalStatus.sensors[i].pin, globalStatus.sensors[i].value);
+    } else if(globalStatus.sensors[i].type == "LDR"){
+      globalStatus.sensors[i].value = getLDR(globalStatus.sensors[i].pin, globalStatus.sensors[i].value);
+    }
+    
+  }
+}
+
+void sendData() {
   Serial.print("STATUS [" + String(lastTime, DEC) + "]: ");
   
   StaticJsonBuffer<1024> jsonOutputBuffer;
@@ -149,27 +169,44 @@ void  sendData() {
     
   }
   
-  //root.printTo(Serial);
-  //Serial.println();
-  
-  root.prettyPrintTo(Serial);
+  root.printTo(Serial);
   Serial.println();
 }
 
 // function that return the temperature as an integer
-int get_temperature() {
+int getTemperatureDHT11(int pin, int value) {
+  
+  return value + random(-1, 2);
+  /*
   int temperature;
   
-  DHT.read11(DHT11_PIN);
+  DHT.read11(pin);
   temperature = DHT.temperature;
   return (temperature);
+  */
 }
 
-// function that return the temperature as an integer
-int get_humidity() {
+// function that return the humidity as an integer
+int getHumidityDHT11(int pin, int value) {
+  
+  return value + random(-1, 2);
+  /*
   int humidity;
   
-  DHT.read11(DHT11_PIN);
+  DHT.read11(pin);
   humidity = DHT.humidity;
   return (humidity);
+  */
+}
+
+// function that return the Soil meter as an integer
+int getSoil(int pin, int value) {
+  
+  return value + random(-1, 2);
+}
+
+// function that return the LDR value as an integer
+int getLDR(int pin, int value) {
+  
+  return value + random(-1, 2);
 }
