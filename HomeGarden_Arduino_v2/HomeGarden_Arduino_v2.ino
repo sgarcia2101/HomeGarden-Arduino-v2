@@ -27,7 +27,7 @@ struct Actuator {
 };
 
 struct Status {
-  Actuator actuators[MAX_ACTUATORS]
+  Actuator actuators[MAX_ACTUATORS];
   Sensor sensors[MAX_SENSORS];
 };
 
@@ -44,8 +44,8 @@ void setup(){
     ; // wait for serial port to connect. Needed for native USB port only
   }
   
-  globalStatus.ligth = {0, "OFF", 0};
-  globalStatus.water = {1, "OFF", 0};
+  globalStatus.actuators[0] = Actuator{0, "OFF", 0};
+  globalStatus.actuators[1] = Actuator{1, "OFF", 0};
   globalStatus.sensors[0] = Sensor{2, "DHT11_TEMP", 23};
   globalStatus.sensors[1] = Sensor{3, "DHT11_HUM", 50};
   globalStatus.sensors[2] = Sensor{4, "SOIL", 30};
@@ -77,27 +77,31 @@ void loop() {
       
       String action = root["action"];
       
-      // {"action":"WATER_ON","time":20}
-      if(action == "WATER_ON"){
+      // {"action":"ACTUATOR_ON","time":20, "pin": 0}
+      if(action == "ACTUATOR_ON"){
         String time = root["time"];
+        int pin = root["pin"];
         
-        globalStatus.water.status = "ON";
-        globalStatus.water.time = lastTime + (time.toInt() * 1000);
+        for (int i = 0; i < ARRAYSIZE(globalStatus.actuators); i++) {
+          if(pin == globalStatus.actuators[i].pin){
+            globalStatus.actuators[0].status = "ON";
+            globalStatus.actuators[0].time = lastTime + (time.toInt() * 1000);
+            
+            break;
+          }
+        }
         
-      // {"action":"WATER_OFF"}
-      } else if(action == "WATER_OFF") {
-        globalStatus.water.status = "OFF";
+      // {"action":"ACTUATOR_OFF", "pin": 0}
+      } else if(action == "ACTUATOR_OFF") {
+        int pin = root["pin"];
         
-      // {"action":"LIGHT_ON","time":20}
-      } else if(action == "LIGHT_ON") {
-        String time = root["time"];
-        
-        globalStatus.ligth.status = "ON";
-        globalStatus.ligth.time = lastTime + (time.toInt() * 1000);
-      
-      // {"action":"LIGHT_OFF"}
-      } else if(action == "LIGHT_OFF") {
-        globalStatus.water.status = "OFF";
+        for (int i = 0; i < ARRAYSIZE(globalStatus.actuators); i++) {
+          if(pin == globalStatus.actuators[i].pin){
+            globalStatus.actuators[i].status = "OFF";
+            
+            break;
+          }
+        }
         
       } else {
         Serial.print("INVALID_OPTION");
@@ -109,21 +113,17 @@ void loop() {
   
   sendData();
   
-  delay(5000);
+  delay(60000);
     
 }
 
 void checkStatus() {
-  if(lastTime > globalStatus.ligth.time){
-    globalStatus.ligth.status = "OFF";
-    globalStatus.ligth.time = 0;
+  for (int i = 0; i < ARRAYSIZE(globalStatus.actuators); i++) {
+    if(lastTime > globalStatus.actuators[0].time){
+      globalStatus.actuators[i].status = "OFF";
+      globalStatus.actuators[i].time = 0;
+    }
   }
-  
-  if(lastTime > globalStatus.water.time){
-    globalStatus.water.status = "OFF";
-    globalStatus.water.time = 0;
-  }
-  
 }
 
 void getData() {
@@ -148,23 +148,22 @@ void sendData() {
   StaticJsonBuffer<1024> jsonOutputBuffer;
   JsonObject& root = jsonOutputBuffer.createObject();
   
-  JsonObject& light = root.createNestedObject("light");
-  light["pin"] = globalStatus.ligth.pin;
-  light["status"] = globalStatus.ligth.status;
-  light["time"]= globalStatus.ligth.time;
-  
-  JsonObject& water = root.createNestedObject("water");
-  water["pin"] = globalStatus.water.pin;
-  water["status"] = globalStatus.water.status;
-  water["time"]= globalStatus.water.time;
+  JsonArray& actuators = root.createNestedArray("actuators");
+
+  for (int i = 0; i < ARRAYSIZE(globalStatus.actuators); i++) {
+    JsonObject &actuator = actuators.createNestedObject();
+    actuator["pin"] = globalStatus.actuators[i].pin;
+    actuator["status"] = globalStatus.actuators[i].status;
+    actuator["time"] = globalStatus.actuators[i].time;
+  }
   
   JsonArray& sensors = root.createNestedArray("sensors");
 
   for (int i = 0; i < ARRAYSIZE(globalStatus.sensors); i++) {
     
     JsonObject &sensor = sensors.createNestedObject();
-    sensor["type"] = globalStatus.sensors[i].type;
     sensor["pin"] = globalStatus.sensors[i].pin;
+    sensor["type"] = globalStatus.sensors[i].type;
     sensor["value"] = globalStatus.sensors[i].value;
     
   }
